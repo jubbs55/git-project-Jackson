@@ -57,6 +57,8 @@ public class Git {
         try {
             System.out.println(hashFile("Hello.txt"));
             newGit.makeBlob("Hello.txt");
+
+            newGit.addFileEntry("Hello.txt");
         } catch (Exception e) {
             System.out.println("Cannot Run SHA-1 Hash File");
         }
@@ -139,5 +141,21 @@ public class Git {
         FileWriter writer = new FileWriter(newBLOB.getPath().toString());
         writer.write(text + "\n");
         writer.close();
+    }
+
+    public void addFileEntry(String filePath) throws IOException { 
+        String hash = hashFile(filePath);
+
+        BufferedReader br = new BufferedReader(new FileReader(index));
+
+        FileWriter writer = new FileWriter(index);
+
+        if (br.readLine() == null) { 
+            writer.write(hash + " " + filePath);
+        } else { 
+            writer.write("\n" + hash + " " + filePath);
+        }
+        writer.close();
+        br.close();
     }
 }
