@@ -2,3 +2,4 @@
 
 makeGit()
 hashFile()
+makeBlob()
