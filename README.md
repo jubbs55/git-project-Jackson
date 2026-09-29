@@ -3,3 +3,4 @@
 makeGit()
 hashFile()
 makeBlob()
+addFileEntry()
