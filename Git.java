@@ -26,6 +26,10 @@ public class Git {
     private File objects;
     private File index;
     private File HEAD;
+    private File heads;
+    private String prefix = "ref: refs/heads/";
+
+
 
 
     public File getGit() {
@@ -278,6 +282,11 @@ public class Git {
                 exisitingFileCount++;
             }
 
+            heads = new File(git, "refs/heads");
+            if (!heads.mkdirs()) { 
+                exisitingFileCount++;
+            }
+
             index = new File(git, "index");
             if (!index.createNewFile()) { 
                 exisitingFileCount++;
@@ -287,7 +296,11 @@ public class Git {
                 exisitingFileCount++;
             }
 
-            if (exisitingFileCount == 4) { 
+            if (HEAD.length() == 0) { 
+                Files.writeString(HEAD.toPath(), prefix + "main");
+            }
+
+            if (exisitingFileCount == 5) { 
                 System.out.println("Git Repository Already Exists");
             } else { 
                 System.out.println("Git Repository Created");
@@ -659,35 +672,76 @@ public class Git {
 
     // commit method, writes in all the things needed in a commit message and returns a commit hash
     public String commit(String author, String message) throws IOException {
+        String roothash = createTreeFromIndex();//makes root tree
+        String parenthash = currentCommit();
+        StringBuilder commitmes = new StringBuilder();//makes commit contents with all the requirements
+        commitmes.append("tree: " + roothash + "\n");
+        //CHECK - if parenthash is empty this line should not be there
+        if (!parenthash.isEmpty()) {
+            commitmes.append("parent: " + parenthash + "\n");
+        }
+        //writes the rest of the requiremtns regularly
+        
+        commitmes.append("author: " + author + "\n");
+        String date = java.time.LocalDateTime.now().toString();
+        commitmes.append("date: " + date + "\n");
+        commitmes.append("message: " + message + "\n");
 
-    String roothash = createTreeFromIndex();//makes root tree
-    String parenthash = Files.readString(HEAD.toPath());//uses head to find parent file
-    StringBuilder commitmes = new StringBuilder();//makes commit contents with all the requirements
-    commitmes.append("tree: " + roothash + "\n");
-    //CHECK - if parenthash is empty this line should not be there
-    if (!parenthash.isEmpty()) {
-        commitmes.append("parent: " + parenthash + "\n");
+        //hash the conents
+        String finalContents = commitmes.toString();
+        String commitHash = hashText(finalContents.getBytes());
+
+        //writes the commit file
+        File commitFile = new File(objects, commitHash);    
+        FileWriter writer = new FileWriter(commitFile);
+        writer.write(finalContents);
+        writer.close();
+
+        String currentBranch = currentBranch();
+        if (currentBranch == null) { 
+            Files.writeString(HEAD.toPath(), commitHash);
+        } else { 
+            Files.writeString(branchFile(currentBranch).toPath(), commitHash);
+        }
+        return commitHash;
     }
-    //writes the rest of the requiremtns regularly
-    
-    commitmes.append("author: " + author + "\n");
-    String date = java.time.LocalDateTime.now().toString();
-    commitmes.append("date: " + date + "\n");
-    commitmes.append("message: " + message + "\n");
 
-    //hash the conents
-    String finalContents = commitmes.toString();
-    String commitHash = hashText(finalContents.getBytes());
 
-    //writes the commit file
-    File commitFile = new File(objects, commitHash);    
-    FileWriter writer = new FileWriter(commitFile);
-    writer.write(finalContents);
-    writer.close();
+    public File branchFile(String name) {
+        return new File(heads, name);
+     }
 
-    Files.writeString(HEAD.toPath(), commitHash);//NEED to update head
-    return commitHash;
-}
+    public boolean isBranch(String name) { 
+        return !name.isEmpty() && branchFile(name).isFile();
+    }
+
+    public boolean isCommit(String name) throws IOException { 
+        File obj = new File(objects, name);
+        return obj.isFile() && Files.readString(obj.toPath()).startsWith("tree: ");
+    }
+
+    public String currentBranch() throws IOException { 
+        String head = Files.readString(HEAD.toPath()).trim();
+        if (head.startsWith(prefix)) { 
+            return head.substring(prefix.length());
+        }
+        return null;
+    }
+
+    public String currentCommit() throws IOException { 
+        String branch = currentBranch();
+        if (branch == null) { 
+            return Files.readString(HEAD.toPath()).trim();
+        }
+        File file = branchFile(branch);
+        if (!file.exists()) { 
+            return "";
+        }
+        return Files.readString(file.toPath()).trim();
+    }
+
+
+
 
 
 
