@@ -741,8 +741,82 @@ public class Git {
     }
 
 
+    public void createBranch(String name) throws IOException { 
+        if (name.isEmpty() || name.contains("/")) { 
+            throw new IOException("Name cannot be empty or contain '/'");
+        }
+        if (isBranch(name)) { 
+            throw new IOException("Branch with name already exists");
+        }
+        if (currentCommit().isEmpty()) { 
+            throw new IOException("There aren't any commits");
+        }
+        Files.writeString(branchFile(name).toPath(), currentCommit());
+
+    }
+
+    public void checkout(String name) throws IOException{ 
+        String commit;
+        if (isBranch(name)) { 
+            commit = Files.readString(branchFile(name).toPath()).trim();
+        } else if (isCommit(name)) { 
+            commit = name;
+        } else { 
+            throw new IOException("Was not given a branch or a commit");
+        }
+
+        String firstLine = Files.readString(new File(objects, commit).toPath()).split("\n")[0];
+        String tree = firstLine.substring(6);
+
+        // delete staged files so the folder is the same as commit
+        String[] addedFiles = Files.readString(index.toPath()).split("\n");
+        for (int i = 0; i < addedFiles.length; i++) {
+            if (!addedFiles[i].isEmpty()) { 
+                String path = addedFiles[i].split(" ", 2)[1];
+                new File(path).delete();
+            }
+        }
+
+        //bring all the files together
+        StringBuilder newIndex = new StringBuilder();
+        restoreTree(tree, "", newIndex);
+        Files.writeString(index.toPath(), newIndex.toString());
+
+        if (isBranch(name)) { 
+            Files.writeString(HEAD.toPath(), prefix + name);
+        } else { 
+            Files.writeString(HEAD.toPath(), commit);
+        }
+    }
 
 
+    public void restoreTree(String tree, String workingDirPath, StringBuilder newIndex) throws IOException{ 
+        String[] treeLines = Files.readString(new File(objects, tree).toPath()).split("\n");
+        for (int i = 0; i < treeLines.length; i++) {
+            if (!treeLines[i].isEmpty()) { 
+                String[] pieces = treeLines[i].split(" ", 3);
+                String type = pieces[0];
+                String hash = pieces[1];
+                String path = workingDirPath + pieces[2];
+
+                if (type.equals("blob")) { 
+                    File blobFile = new File(path);
+                    if (blobFile.getParentFile() != null) { 
+                        blobFile.getParentFile().mkdirs();
+                    }
+                    Files.write(blobFile.toPath(), Files.readAllBytes(new File(objects, hash).toPath()));
+
+                    if (newIndex.length() > 0) { 
+                        newIndex.append('\n');
+                    }
+                    newIndex.append(hash + " " + path);
+                } else { 
+                    restoreTree(hash, path + '/', newIndex);
+                }
+
+            }
+        }
+    }
 
 
 
