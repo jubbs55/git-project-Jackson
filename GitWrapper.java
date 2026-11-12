@@ -48,9 +48,17 @@ public class GitWrapper {
     public static String commit(String author, String message) {
         try {
             return git.commit(author, message);
-    }    catch (IOException e) {
+        }  catch (IOException e) {
             throw new RuntimeException("Commit failed", e);
+        }
     }
-}
-    //deleted extra credit
+
+    public static void createBranch(String name) throws IOException { 
+        git.createBranch(name);
+    }
+
+    public static void checkout(String name) throws IOException { 
+        git.checkout(name);
+    }
+    
 }
